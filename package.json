@@ -14,12 +14,18 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "timefly-dev.helloWorld",
-        "title": "Hello World"
+    "commands": [],
+    "configuration": {
+      "type": "object",
+      "title": "TimeFly Dev",
+      "properties": {
+        "timefly.analytics.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable analytics to help improve the extension. Data is anonymous and used only for improvement purposes."
+        }
       }
-    ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -39,7 +45,6 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
-    "posthog-js": "^1.255.1",
     "posthog-node": "^5.1.1"
   }
 }
