@@ -1,0 +1,62 @@
+import * as vscode from "vscode";
+import { configureApiKey } from "@/auth/setup";
+import { clearAuthenticationData } from "@/auth/state";
+import { getStorageService } from "@/services/storage";
+import { info, logger } from "@/utils/logger";
+import { trackApiKeyManagement } from "@/utils/telemetry";
+
+/**
+ * Command: Configure API Key
+ */
+export async function handleConfigureApiKey(): Promise<void> {
+	await configureApiKey();
+}
+
+/**
+ * Command: Logout from TimeFly
+ */
+export async function handleLogout(): Promise<void> {
+	try {
+		const storage = getStorageService();
+		const userInfo = storage.getUserInfo();
+
+		if (!userInfo) {
+			vscode.window.showInformationMessage(
+				"📭 You are not currently logged in to TimeFly",
+			);
+			return;
+		}
+
+		const confirmMessage = 
+			`🚪 Logout from TimeFly\n\n` +
+			`This will remove your API key and stop tracking your coding activity.\n\n` +
+			`Currently logged in as: ${userInfo.name} (${userInfo.email})`;
+
+		const selection = await vscode.window.showWarningMessage(
+			confirmMessage,
+			{ modal: true },
+			"Yes, Logout"
+		);
+
+		if (selection === "Yes, Logout") {
+			await clearAuthenticationData();
+
+			info("User logged out successfully");
+			await trackApiKeyManagement("logout_completed");
+
+			vscode.window.showInformationMessage(
+				"👋 Successfully logged out from TimeFly. Your local data has been cleared.",
+			);
+		} else {
+			logger.debug("Logout cancelled by user");
+			await trackApiKeyManagement("logout_cancelled");
+		}
+	} catch (error) {
+		logger.error("Error during logout", error);
+		await trackApiKeyManagement(
+			"logout_error",
+			error instanceof Error ? error.message : "unknown_error",
+		);
+		vscode.window.showErrorMessage("Failed to logout. Please try again.");
+	}
+}
