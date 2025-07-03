@@ -24,6 +24,8 @@ function registerCommands(context: vscode.ExtensionContext) {
 export async function activate(context: vscode.ExtensionContext) {
 	info("TimeFly Dev extension activated");
 
+	registerCommands(context);
+
 	try {
 		// Initialize storage service with context
 		const { storageService } = await initializeStorageService(context);
@@ -36,9 +38,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		// Check authentication status and show appropriate message
 		await handleStartupAuthentication(storageService);
-
-		// Register VS Code commands
-		registerCommands(context);
 
 		// Listen for configuration changes
 		setupConfigurationListeners(context);
