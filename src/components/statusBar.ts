@@ -15,8 +15,8 @@ const STATUS_BAR_STATES: Record<StatusBarState, StatusBarInfo> = {
 	},
 	[StatusBarState.AUTHENTICATED]: {
 		text: "$(watch) 0s",
-		tooltip: "TimeFly is tracking your coding activity.",
-		command: "timefly.logout",
+		tooltip: "TimeFly is tracking your activity. Click to open the web dashboard.",
+		command: "timefly.openWebsite",
 	},
 	[StatusBarState.ERROR]: {
 		text: "$(error) TimeFly Error",

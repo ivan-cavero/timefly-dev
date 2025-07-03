@@ -24,6 +24,11 @@
         "command": "timefly.logout",
         "title": "Logout",
         "category": "TimeFly"
+      },
+      {
+        "command": "timefly.openWebsite",
+        "title": "Open TimeFly Website",
+        "category": "TimeFly"
       }
     ],
     "configuration": {

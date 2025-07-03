@@ -7,6 +7,7 @@ import { info, logger } from "@/utils/logger";
 import { trackActivation, trackPrivacyChange } from "@/utils/telemetry";
 import { statusBar } from "@/components/statusBar";
 import { StatusBarState } from "@/types/statusBar";
+import { handleOpenWebsite } from "@/commands/general";
 
 function registerCommands(context: vscode.ExtensionContext) {
 	// Register TimeFly commands
@@ -16,6 +17,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 			handleConfigureApiKey,
 		),
 		vscode.commands.registerCommand("timefly.logout", handleLogout),
+		vscode.commands.registerCommand("timefly.openWebsite", handleOpenWebsite),
 	];
 
 	// Add all commands to subscriptions for proper cleanup
