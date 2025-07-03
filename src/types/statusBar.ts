@@ -10,4 +10,5 @@ export interface StatusBarInfo {
 	tooltip: string;
 	command?: string;
 	color?: string;
+	backgroundColor?: string;
 } 

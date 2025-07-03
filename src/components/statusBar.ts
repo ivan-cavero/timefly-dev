@@ -11,6 +11,7 @@ const STATUS_BAR_STATES: Record<StatusBarState, StatusBarInfo> = {
 		text: "$(warning) Configure API Key",
 		tooltip: "Click to configure your TimeFly API Key",
 		command: "timefly.configureApiKey",
+		backgroundColor: "statusBarItem.warningBackground",
 	},
 	[StatusBarState.AUTHENTICATED]: {
 		text: "$(watch) 0s",
@@ -21,6 +22,7 @@ const STATUS_BAR_STATES: Record<StatusBarState, StatusBarInfo> = {
 		text: "$(error) TimeFly Error",
 		tooltip: "An error occurred. Check logs for details.",
 		color: "statusBarItem.errorForeground",
+		backgroundColor: "statusBarItem.errorBackground",
 	},
 };
 
@@ -45,8 +47,13 @@ class StatusBarService {
 		this.statusBarItem.text = dynamicText ?? stateInfo.text;
 		this.statusBarItem.tooltip = stateInfo.tooltip;
 		this.statusBarItem.command = stateInfo.command;
+
+		// Set text and background colors
 		this.statusBarItem.color = stateInfo.color
 			? new vscode.ThemeColor(stateInfo.color)
+			: undefined;
+		this.statusBarItem.backgroundColor = stateInfo.backgroundColor
+			? new vscode.ThemeColor(stateInfo.backgroundColor)
 			: undefined;
 	}
 
