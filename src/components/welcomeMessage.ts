@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { configureApiKey as setupApiKey } from "@/auth/setup";
 import { debug, info } from "@/utils/logger";
 import { trackWelcomeAction } from "@/utils/telemetry";
+import { handleOpenWebsite } from "@/commands/general";
 
 export async function showWelcomeMessage(): Promise<void> {
 	const message =
@@ -30,11 +31,7 @@ export async function showWelcomeMessage(): Promise<void> {
 			case learnMore:
 				info("User clicked Learn More button");
 				await trackWelcomeAction("learn_more");
-
-				// Open TimeFly website
-				await vscode.env.openExternal(vscode.Uri.parse("https://timefly.dev/"));
-
-				showWelcomeMessage();
+				await handleOpenWebsite("welcome_message");
 				break;
 
 			default:
@@ -45,7 +42,9 @@ export async function showWelcomeMessage(): Promise<void> {
 		}
 	} catch (error) {
 		throw new Error(
-			`Error showing welcome message: ${error instanceof Error ? error.message : "Unknown error"}`,
+			`Error showing welcome message: ${
+				error instanceof Error ? error.message : "Unknown error"
+			}`,
 		);
 	}
 }

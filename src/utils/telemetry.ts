@@ -46,6 +46,18 @@ export async function trackActivation(): Promise<void> {
 }
 
 /**
+ * Track when the user opens the TimeFly website
+ */
+export async function trackWebsiteOpened(
+	source: "welcome_message" | "status_bar",
+): Promise<void> {
+	await trackEvent("website_opened", {
+		source,
+		timestamp: new Date().toISOString(),
+	});
+}
+
+/**
  * Track welcome message interactions - these are the important user actions
  */
 export async function trackWelcomeAction(
@@ -74,11 +86,11 @@ export async function trackApiKeySetup(
 /**
  * Track API key management actions (logout, status check, reconfigure, etc.)
  */
-export async function trackApiKeyManagement(
-	action: string,
+export async function trackLogout(
+	action: "completed" | "cancelled" | "error",
 	error?: string,
 ): Promise<void> {
-	await trackEvent("api_key_management", {
+	await trackEvent("logout_attempt", {
 		action,
 		error_message: error,
 		timestamp: new Date().toISOString(),
