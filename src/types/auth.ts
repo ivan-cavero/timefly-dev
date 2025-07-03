@@ -29,5 +29,4 @@ export interface AuthenticationSummary {
 	isAuthenticated: boolean;
 	hasApiKey: boolean;
 	userInfo?: UserInfo;
-	lastValidation?: string;
 }

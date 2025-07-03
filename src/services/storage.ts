@@ -1,6 +1,5 @@
 import type * as vscode from "vscode";
 import type { AuthenticationSummary, UserInfo } from "@/types/auth";
-import type { WorkspaceSettings } from "@/types/storage";
 import { logger } from "@/utils/logger";
 
 /**
@@ -13,11 +12,6 @@ const STORAGE_KEYS = {
 	// Global state (shared across all VS Code instances)
 	USER_INFO: "timefly.userInfo",
 	IS_AUTHENTICATED: "timefly.isAuthenticated",
-	LAST_VALIDATION: "timefly.lastValidation",
-
-	// Instance state (workspace-specific) - for future use
-	WORKSPACE_SETTINGS: "timefly.workspaceSettings",
-	LAST_ACTIVITY: "timefly.lastActivity",
 } as const;
 
 /**
@@ -83,10 +77,6 @@ export class StorageService {
 				STORAGE_KEYS.IS_AUTHENTICATED,
 				true,
 			);
-			await this.context.globalState.update(
-				STORAGE_KEYS.LAST_VALIDATION,
-				new Date().toISOString(),
-			);
 			logger.info(`User info stored for: ${userInfo.email}`);
 		} catch (error) {
 			logger.error("Failed to store user info", error);
@@ -121,78 +111,6 @@ export class StorageService {
 		}
 	}
 
-	/**
-	 * Get last validation timestamp
-	 */
-	getLastValidation(): string | undefined {
-		try {
-			return this.context.globalState.get<string>(STORAGE_KEYS.LAST_VALIDATION);
-		} catch (error) {
-			logger.error("Failed to get last validation timestamp", error);
-			return undefined;
-		}
-	}
-
-	// ============= WORKSPACE STATE MANAGEMENT (INSTANCE-SPECIFIC) =============
-
-	/**
-	 * Store workspace-specific settings
-	 */
-	async storeWorkspaceSettings(settings: WorkspaceSettings): Promise<void> {
-		try {
-			await this.context.workspaceState.update(
-				STORAGE_KEYS.WORKSPACE_SETTINGS,
-				settings,
-			);
-			logger.debug("Workspace settings stored");
-		} catch (error) {
-			logger.error("Failed to store workspace settings", error);
-			throw new Error("Failed to store workspace settings");
-		}
-	}
-
-	/**
-	 * Retrieve workspace-specific settings
-	 */
-	getWorkspaceSettings(): WorkspaceSettings | undefined {
-		try {
-			return this.context.workspaceState.get<WorkspaceSettings>(
-				STORAGE_KEYS.WORKSPACE_SETTINGS,
-			);
-		} catch (error) {
-			logger.error("Failed to retrieve workspace settings", error);
-			return undefined;
-		}
-	}
-
-	/**
-	 * Update last activity timestamp for this workspace
-	 */
-	async updateLastActivity(): Promise<void> {
-		try {
-			await this.context.workspaceState.update(
-				STORAGE_KEYS.LAST_ACTIVITY,
-				new Date().toISOString(),
-			);
-		} catch (error) {
-			logger.error("Failed to update last activity", error);
-		}
-	}
-
-	/**
-	 * Get last activity timestamp for this workspace
-	 */
-	getLastActivity(): string | undefined {
-		try {
-			return this.context.workspaceState.get<string>(
-				STORAGE_KEYS.LAST_ACTIVITY,
-			);
-		} catch (error) {
-			logger.error("Failed to get last activity", error);
-			return undefined;
-		}
-	}
-
 	// ============= UTILITY METHODS =============
 
 	/**
@@ -209,20 +127,6 @@ export class StorageService {
 				STORAGE_KEYS.IS_AUTHENTICATED,
 				false,
 			);
-			await this.context.globalState.update(
-				STORAGE_KEYS.LAST_VALIDATION,
-				undefined,
-			);
-
-			// Clear workspace state
-			await this.context.workspaceState.update(
-				STORAGE_KEYS.WORKSPACE_SETTINGS,
-				undefined,
-			);
-			await this.context.workspaceState.update(
-				STORAGE_KEYS.LAST_ACTIVITY,
-				undefined,
-			);
 
 			logger.info("All stored data cleared");
 		} catch (error) {
@@ -238,13 +142,11 @@ export class StorageService {
 		const isAuthenticated = this.isAuthenticated();
 		const hasApiKey = (await this.getApiKey()) !== undefined;
 		const userInfo = this.getUserInfo();
-		const lastValidation = this.getLastValidation();
 
 		return {
 			isAuthenticated,
 			hasApiKey,
 			userInfo,
-			lastValidation,
 		};
 	}
 
