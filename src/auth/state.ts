@@ -5,7 +5,7 @@ import { logger } from "@/utils/logger";
 /**
  * Get current authentication state
  */
-async function getAuthenticationState(): Promise<AuthenticationSummary> {
+export async function getAuthenticationState(): Promise<AuthenticationSummary> {
 	try {
 		const storage = getStorageService();
 		return await storage.getAuthenticationSummary();

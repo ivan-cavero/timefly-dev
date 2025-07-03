@@ -6,12 +6,14 @@ import { info, logger } from "@/utils/logger";
 import { trackLogout } from "@/utils/telemetry";
 import { statusBar } from "@/components/statusBar";
 import { StatusBarState } from "@/types/statusBar";
+import { trackingService } from "@/services/trackingService";
 
 /**
  * Command: Configure API Key
  */
 export async function handleConfigureApiKey(): Promise<void> {
-	await configureApiKey();
+	const success = await configureApiKey();
+	await trackingService.updateAuthenticationStatus(success);
 }
 
 /**
@@ -41,6 +43,8 @@ export async function handleLogout(): Promise<void> {
 		);
 
 		if (selection === "Yes, Logout") {
+			await trackingService.updateAuthenticationStatus(false);
+			
 			await clearAuthenticationData();
 			statusBar.update(StatusBarState.UNAUTHENTICATED);
 

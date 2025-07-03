@@ -8,6 +8,7 @@ import { trackActivation, trackPrivacyChange } from "@/utils/telemetry";
 import { statusBar } from "@/components/statusBar";
 import { StatusBarState } from "@/types/statusBar";
 import { handleOpenWebsite } from "@/commands/general";
+import { trackingService } from "@/services/trackingService";
 
 function registerCommands(context: vscode.ExtensionContext) {
 	// Register TimeFly commands
@@ -46,10 +47,15 @@ export async function activate(context: vscode.ExtensionContext) {
 		await trackActivation();
 
 		// Check authentication status and show appropriate message
-		await handleStartupAuthentication(storageService);
+		const isAuthenticated = await handleStartupAuthentication(storageService);
 
 		// Listen for configuration changes
 		setupConfigurationListeners(context);
+
+		// Initialize the tracking service with the current auth state.
+		// The service will only start its intervals if isAuthenticated is true.
+		await trackingService.updateAuthenticationStatus(isAuthenticated);
+
 	} catch (error) {
 		logger.error("Error during extension activation", error);
 		statusBar.update(StatusBarState.ERROR);
@@ -108,7 +114,7 @@ async function initializeStorageService(
  */
 async function handleStartupAuthentication(
 	storage: StorageService,
-): Promise<void> {
+): Promise<boolean> {
 	try {
 		const authSummary = await storage.getAuthenticationSummary();
 
@@ -124,6 +130,7 @@ async function handleStartupAuthentication(
 				`Welcome back ${userName}! TimeFly is ready to track your coding time.`,
 			);
 			statusBar.update(StatusBarState.AUTHENTICATED);
+			return true;
 
 			// Optional: Show a subtle welcome back message
 			// vscode.window.showInformationMessage(`👋 Welcome back ${userName}!`);
@@ -132,17 +139,22 @@ async function handleStartupAuthentication(
 			info("User not authenticated - showing welcome message");
 			statusBar.update(StatusBarState.UNAUTHENTICATED);
 			await showWelcomeMessage();
+			return false;
 		}
 	} catch (error) {
 		logger.error("Error checking authentication status", error);
 		statusBar.update(StatusBarState.ERROR);
 		// Fallback to welcome message
 		await showWelcomeMessage();
+		return false;
 	}
 }
 
 export async function deactivate() {
 	info("TimeFly Dev extension deactivated");
+
+	// Stop the unified tracking and syncing service
+	// trackingService.stop(); // This is no longer needed, service state is managed by auth
 
 	try {
 		await analytics.shutdown();

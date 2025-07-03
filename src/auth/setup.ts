@@ -67,8 +67,9 @@ function getErrorMessage(
 /**
  * Handle API key configuration flow
  * If an API key already exists, it will be replaced with the new one
+ * @returns {Promise<boolean>} - True if setup was successful, false otherwise.
  */
-export async function configureApiKey(): Promise<void> {
+export async function configureApiKey(): Promise<boolean> {
 	let shouldContinue = true;
 
 	while (shouldContinue) {
@@ -90,8 +91,7 @@ export async function configureApiKey(): Promise<void> {
 				// User cancelled or entered empty key
 				debug("API key configuration cancelled");
 				await trackApiKeySetup(false, "user_cancelled");
-				shouldContinue = false;
-				return;
+				return false;
 			}
 
 			const validation = validateApiKeyFormat(apiKey);
@@ -132,7 +132,7 @@ export async function configureApiKey(): Promise<void> {
 							const successMessage = `🚀 Welcome ${userName}! Your API key is configured and TimeFly is now tracking your coding time.`;
 
 							vscode.window.showInformationMessage(successMessage);
-							shouldContinue = false;
+							return true;
 						} catch (storageError) {
 							logger.error(
 								"Failed to store API key or user info",
@@ -178,4 +178,5 @@ export async function configureApiKey(): Promise<void> {
 			shouldContinue = retry;
 		}
 	}
+	return false; // Loop was broken without success
 }

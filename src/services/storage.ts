@@ -1,6 +1,7 @@
 import type * as vscode from "vscode";
 import type { AuthenticationSummary, UserInfo } from "@/types/auth";
 import { logger } from "@/utils/logger";
+import { Pulse } from "@/types/pulse";
 
 /**
  * Storage keys for consistent access
@@ -12,6 +13,7 @@ const STORAGE_KEYS = {
 	// Global state (shared across all VS Code instances)
 	USER_INFO: "timefly.userInfo",
 	IS_AUTHENTICATED: "timefly.isAuthenticated",
+	PULSE_QUEUE: "timefly.pulseQueue",
 } as const;
 
 /**
@@ -128,6 +130,9 @@ export class StorageService {
 				false,
 			);
 
+			// Clear pulse queue
+			await this.clearPulses();
+
 			logger.info("All stored data cleared");
 		} catch (error) {
 			logger.error("Failed to clear all data", error);
@@ -173,6 +178,45 @@ export class StorageService {
 		} catch (error) {
 			logger.error("Failed to validate stored data", error);
 			return false;
+		}
+	}
+
+	// ============= PULSE QUEUE MANAGEMENT (GLOBAL STATE) =============
+
+	/**
+	 * Adds a pulse to the persistent queue.
+	 */
+	async addPulse(pulse: Pulse): Promise<void> {
+		try {
+			const currentQueue = await this.getPulses();
+			currentQueue.push(pulse);
+			await this.context.globalState.update(STORAGE_KEYS.PULSE_QUEUE, currentQueue);
+		} catch (error) {
+			logger.error("Failed to add pulse to queue", error);
+		}
+	}
+
+	/**
+	 * Retrieves all pulses from the persistent queue.
+	 */
+	async getPulses(): Promise<Pulse[]> {
+		try {
+			// Get from storage, defaulting to an empty array if not present
+			return this.context.globalState.get<Pulse[]>(STORAGE_KEYS.PULSE_QUEUE, []);
+		} catch (error) {
+			logger.error("Failed to get pulses from queue", error);
+			return []; // Return empty array on error
+		}
+	}
+
+	/**
+	 * Clears all pulses from the persistent queue.
+	 */
+	async clearPulses(): Promise<void> {
+		try {
+			await this.context.globalState.update(STORAGE_KEYS.PULSE_QUEUE, undefined);
+		} catch (error) {
+			logger.error("Failed to clear pulse queue", error);
 		}
 	}
 }

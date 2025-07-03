@@ -61,6 +61,7 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "node-machine-id": "^1.1.12",
     "posthog-node": "^5.1.1"
   }
 }
