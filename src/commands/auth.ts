@@ -4,6 +4,8 @@ import { clearAuthenticationData } from "@/auth/state";
 import { getStorageService } from "@/services/storage";
 import { info, logger } from "@/utils/logger";
 import { trackApiKeyManagement } from "@/utils/telemetry";
+import { statusBar } from "@/components/statusBar";
+import { StatusBarState } from "@/types/statusBar";
 
 /**
  * Command: Configure API Key
@@ -40,6 +42,7 @@ export async function handleLogout(): Promise<void> {
 
 		if (selection === "Yes, Logout") {
 			await clearAuthenticationData();
+			statusBar.update(StatusBarState.UNAUTHENTICATED);
 
 			info("User logged out successfully");
 			await trackApiKeyManagement("logout_completed");

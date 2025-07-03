@@ -5,6 +5,8 @@ import { analytics } from "@/services/analytics";
 import { initStorageService, type StorageService } from "@/services/storage";
 import { info, logger } from "@/utils/logger";
 import { trackActivation, trackPrivacyChange } from "@/utils/telemetry";
+import { statusBar } from "@/components/statusBar";
+import { StatusBarState } from "@/types/statusBar";
 
 function registerCommands(context: vscode.ExtensionContext) {
 	// Register TimeFly commands
@@ -24,7 +26,12 @@ function registerCommands(context: vscode.ExtensionContext) {
 export async function activate(context: vscode.ExtensionContext) {
 	info("TimeFly Dev extension activated");
 
+	// ALWAYS register commands first, regardless of initialization errors
 	registerCommands(context);
+
+	// Initialize status bar
+	statusBar.init(context);
+	statusBar.update(StatusBarState.INITIALIZING);
 
 	try {
 		// Initialize storage service with context
@@ -43,6 +50,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		setupConfigurationListeners(context);
 	} catch (error) {
 		logger.error("Error during extension activation", error);
+		statusBar.update(StatusBarState.ERROR);
 
 		// Still show welcome message even if analytics fails
 		try {
@@ -113,16 +121,19 @@ async function handleStartupAuthentication(
 			info(
 				`Welcome back ${userName}! TimeFly is ready to track your coding time.`,
 			);
+			statusBar.update(StatusBarState.AUTHENTICATED);
 
 			// Optional: Show a subtle welcome back message
 			// vscode.window.showInformationMessage(`👋 Welcome back ${userName}!`);
 		} else {
 			// User needs to authenticate
 			info("User not authenticated - showing welcome message");
+			statusBar.update(StatusBarState.UNAUTHENTICATED);
 			await showWelcomeMessage();
 		}
 	} catch (error) {
 		logger.error("Error checking authentication status", error);
+		statusBar.update(StatusBarState.ERROR);
 		// Fallback to welcome message
 		await showWelcomeMessage();
 	}

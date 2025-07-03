@@ -4,6 +4,8 @@ import { debug, info, logger } from "@/utils/logger";
 import { trackApiKeySetup } from "@/utils/telemetry";
 import { validateApiKeyWithBackend } from "./backend";
 import { validateApiKeyFormat } from "./validator";
+import { statusBar } from "@/components/statusBar";
+import { StatusBarState } from "@/types/statusBar";
 
 /**
  * Show error message with retry option
@@ -118,6 +120,7 @@ export async function configureApiKey(): Promise<void> {
 							const storage = getStorageService();
 							await storage.storeApiKey(apiKey);
 							await storage.storeUserInfo(backendValidation.user);
+							statusBar.update(StatusBarState.AUTHENTICATED);
 
 							info("API key and user info stored successfully");
 							await trackApiKeySetup(true);
