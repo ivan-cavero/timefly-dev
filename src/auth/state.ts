@@ -1,35 +1,29 @@
-import { getStorageService } from "@/services/storage";
-import type { AuthenticationSummary } from "@/types/auth";
-import { logger } from "@/utils/logger";
+import { getStorageService } from '@/services/storage'
+import type { AuthenticationSummary } from '@/types/auth'
+import { logger } from '@/utils/logger'
 
-/**
- * Get current authentication state
- */
-async function getAuthenticationState(): Promise<AuthenticationSummary> {
+/** Get current authentication state */
+const getAuthenticationState = async (): Promise<AuthenticationSummary> => {
 	try {
-		const storage = getStorageService();
-		return await storage.getAuthenticationSummary();
+		const storage = getStorageService()
+		return await storage.getAuthenticationSummary()
 	} catch (error) {
-		logger.error("Error getting authentication state", error);
+		logger.error('Error getting authentication state', error)
 		return {
 			isAuthenticated: false,
-			hasApiKey: false,
-		};
+			hasApiKey: false
+		}
 	}
 }
 
-/**
- * Check if user is currently authenticated
- */
-export async function isUserAuthenticated(): Promise<boolean> {
+/** Check if user is currently authenticated */
+export const isUserAuthenticated = async (): Promise<boolean> => {
 	try {
-		const authState = await getAuthenticationState();
-		return (
-			authState.isAuthenticated && authState.hasApiKey && !!authState.userInfo
-		);
+		const authState = await getAuthenticationState()
+		return authState.isAuthenticated && authState.hasApiKey && !!authState.userInfo
 	} catch (error) {
-		logger.error("Error checking authentication status", error);
-		return false;
+		logger.error('Error checking authentication status', error)
+		return false
 	}
 }
 
@@ -38,10 +32,10 @@ export async function isUserAuthenticated(): Promise<boolean> {
  */
 export async function clearAuthenticationData(): Promise<void> {
 	try {
-		const storage = getStorageService();
-		await storage.clearAllData();
+		const storage = getStorageService()
+		await storage.clearAllData()
 	} catch (error) {
-		logger.error("Error clearing authentication data", error);
-		throw new Error("Failed to clear authentication data");
+		logger.error('Error clearing authentication data', error)
+		throw new Error('Failed to clear authentication data')
 	}
 }

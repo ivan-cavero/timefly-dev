@@ -1,116 +1,99 @@
-import * as vscode from "vscode";
-import { analytics } from "@/services/analytics";
+import * as vscode from 'vscode'
+import { analytics } from '@/services/analytics'
+import type { AnalyticsProperties } from '@/types/analytics'
+import { error as logError } from './logger'
 
-/**
- * Check if analytics is enabled in user settings
- */
-function isAnalyticsEnabled(): boolean {
-	const config = vscode.workspace.getConfiguration("timefly");
-	return config.get<boolean>("analytics.enabled", true);
+/** Checks if analytics is enabled in user settings */
+const isAnalyticsEnabled = (): boolean => {
+	const config = vscode.workspace.getConfiguration('timefly')
+	return config.get<boolean>('analytics.enabled', true)
 }
 
 /**
- * Track an event only if analytics is enabled
+ * Centralized error handler that logs and tracks errors.
+ * @param error The error object.
+ * @param context An object providing context about where the error occurred.
  */
-async function trackEvent(
-	eventName: string,
-	properties?: Record<string, any>,
-): Promise<void> {
-	if (!isAnalyticsEnabled()) {
-		return;
+export const handleError = async (
+	error: unknown,
+	context: {
+		eventName: string
+		[key: string]: string | number | boolean
 	}
+): Promise<void> => {
+	// 1. Log the error to the console for immediate debugging
+	logError(`Error in ${context.eventName}:`, {
+		error,
+		...context
+	})
 
-	if (!analytics.isEnabled()) {
-		return;
+	// 2. Track the error with analytics if enabled
+	if (analytics.isEnabled() && error instanceof Error) {
+		await analytics.trackError(error, context)
+	}
+}
+
+/** Track an event only if analytics is enabled */
+const trackEvent = async (eventName: string, properties?: AnalyticsProperties): Promise<void> => {
+	if (!isAnalyticsEnabled() || !analytics.isEnabled()) {
+		return
 	}
 
 	await analytics.track({
 		name: eventName,
-		properties,
-	});
+		properties
+	})
 }
 
-/**
- * Track when extension first activates - includes useful environment info
- */
-export async function trackActivation(): Promise<void> {
-	const packageJson = require("../../package.json");
+/** Track when extension first activates */
+export const trackActivation = async (context: vscode.ExtensionContext): Promise<void> => {
+	const { version } = context.extension.packageJSON
 
-	await trackEvent("extension_activated", {
-		extension_version: packageJson.version,
+	await trackEvent('extension_activated', {
+		extension_version: version,
 		ide_name: vscode.env.appName,
 		ide_version: vscode.version,
-		platform: process.platform,
-		activation_time: new Date().toISOString(),
-	});
+		platform: process.platform
+	})
 }
 
-/**
- * Track when the user opens the TimeFly website
- */
-export async function trackWebsiteOpened(
-	source: "welcome_message" | "status_bar",
-): Promise<void> {
-	await trackEvent("website_opened", {
-		source,
-		timestamp: new Date().toISOString(),
-	});
+/** Track when the user opens the TimeFly website */
+export const trackWebsiteOpened = async (source: 'welcome_message' | 'status_bar'): Promise<void> => {
+	await trackEvent('website_opened', { source })
 }
 
-/**
- * Track welcome message interactions - these are the important user actions
- */
-export async function trackWelcomeAction(
-	action: "shown" | "learn_more" | "configure_api_key" | "dismissed",
-): Promise<void> {
-	await trackEvent("welcome_message_interaction", {
-		action,
-		interaction_time: new Date().toISOString(),
-	});
+/** Track welcome message interactions */
+export const trackWelcomeAction = async (action: 'shown' | 'learn_more' | 'configure_api_key' | 'dismissed'): Promise<void> => {
+	await trackEvent('welcome_message_interaction', { action })
 }
 
-/**
- * Track API key configuration attempts and success/failure
- */
-export async function trackApiKeySetup(
-	success: boolean,
-	error?: string,
-): Promise<void> {
-	await trackEvent("api_key_configured", {
+/** Track API key configuration attempts and success/failure */
+export const trackApiKeySetup = async (success: boolean, error?: string): Promise<void> => {
+	await trackEvent('api_key_configured', {
 		success,
-		error_message: error,
-		config_time: new Date().toISOString(),
-	});
+		error_message: error
+	})
 }
 
-/**
- * Track API key management actions (logout, status check, reconfigure, etc.)
- */
-export async function trackLogout(
-	action: "completed" | "cancelled" | "error",
-	error?: string,
-): Promise<void> {
-	await trackEvent("logout_attempt", {
+/** Track user logout attempts */
+export const trackLogout = async (action: 'completed' | 'cancelled' | 'error', error?: string): Promise<void> => {
+	await trackEvent('logout_attempt', {
 		action,
-		error_message: error,
-		timestamp: new Date().toISOString(),
-	});
+		error_message: error
+	})
 }
 
-/**
- * Track when analytics setting is changed by user
- */
-export async function trackPrivacyChange(enabled: boolean): Promise<void> {
+/** Track when analytics setting is changed by user */
+export const trackPrivacyChange = async (enabled: boolean): Promise<void> => {
 	// This one should always track regardless of setting, since it's about the setting itself
 	if (!analytics.isEnabled()) {
-		return;
+		return
 	}
 
 	await analytics.track({
-		name: "analytics_setting_changed",
+		name: 'analytics_setting_changed',
 		properties: {
-			analytics_enabled: enabled,
-			change_time: new Date().toISOString(),
-		},
-	});
+			analytics_enabled: enabled
+		}
+	})
 }

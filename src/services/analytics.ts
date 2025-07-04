@@ -1,195 +1,193 @@
-import { PostHog } from "posthog-node";
-import { logger } from "../utils/logger";
+import { machineIdSync } from 'node-machine-id'
+import { PostHog } from 'posthog-node'
+import type { AnalyticsProperties } from '@/types/analytics'
+import { logger } from '../utils/logger'
 
 export interface AnalyticsEvent {
-	name: string;
-	distinctId?: string;
-	properties?: Record<string, any>;
+	name: string
+	distinctId?: string
+	properties?: AnalyticsProperties
 }
 
-export class AnalyticsService {
-	private client: PostHog | null = null;
-	private isInitialized = false;
-	private distinctId: string;
+const createAnalyticsService = () => {
+	let client: PostHog | null = null
+	let isInitialized = false
 
-	constructor() {
-		// Generate a unique identifier for this extension instance
-		this.distinctId = this.generateDistinctId();
-		// Don't auto-initialize, wait for explicit init call
+	const generateDistinctId = (): string => {
+		try {
+			// Use a stable machine identifier for the user
+			return machineIdSync()
+		} catch (error) {
+			logger.warn('Failed to get machine ID, falling back to random ID.', error)
+			// Fallback for cases where machine-id fails
+			const timestamp = Date.now()
+			const random = Math.random().toString(36).substring(2, 15)
+			return `timefly_fallback_${timestamp}_${random}`
+		}
 	}
 
-	private generateDistinctId(): string {
-		// Use a combination of machine identifier and timestamp for uniqueness
-		const timestamp = Date.now();
-		const random = Math.random().toString(36).substring(2, 15);
-		return `timefly_${timestamp}_${random}`;
-	}
+	const distinctId = generateDistinctId()
 
 	/**
 	 * Initialize the analytics service
 	 */
-	async init(): Promise<void> {
-		if (this.isInitialized) {
-			logger.debug("Analytics service already initialized");
-			return;
+	const init = async (): Promise<void> => {
+		if (isInitialized) {
+			logger.debug('Analytics service already initialized')
+			return
 		}
 
 		try {
-			const apiKey =
-				process.env.POSTHOG_API_KEY ||
-				"phc_b62mSeeaa5sb7ARZcdqQ7qlXOW2klQX20b3qaPhhjQF";
-			const host = process.env.POSTHOG_HOST || "https://eu.i.posthog.com";
+			const apiKey = process.env.POSTHOG_API_KEY || 'phc_b62mSeeaa5sb7ARZcdqQ7qlXOW2klQX20b3qaPhhjQF'
+			const host = process.env.POSTHOG_HOST || 'https://eu.i.posthog.com'
 
 			if (!apiKey) {
-				logger.warn("PostHog API key not found. Analytics will be disabled.");
-				return;
+				logger.warn('PostHog API key not found. Analytics will be disabled.')
+				return
 			}
 
-			this.client = new PostHog(apiKey, {
+			client = new PostHog(apiKey, {
 				host,
 				// For VSCode extension environment
 				flushAt: 1,
 				flushInterval: 0,
 				requestTimeout: 5000,
-				disableGeoip: true,
-			});
+				disableGeoip: true
+			})
 
-			this.isInitialized = true;
-			logger.info("Analytics service initialized successfully");
+			isInitialized = true
+			logger.info('Analytics service initialized successfully')
 		} catch (error) {
-			logger.error("Failed to initialize analytics service", error);
+			logger.error('Failed to initialize analytics service', error)
 		}
 	}
 
 	/**
 	 * Track a generic event
 	 */
-	async track(event: AnalyticsEvent): Promise<void> {
-		if (!this.isInitialized || !this.client) {
-			logger.debug("Analytics not initialized, skipping event:", event.name);
-			return;
+	const track = async (event: AnalyticsEvent): Promise<void> => {
+		if (!isInitialized || !client) {
+			logger.debug('Analytics not initialized, skipping event:', event.name)
+			return
 		}
 
 		try {
-			this.client.capture({
-				distinctId: event.distinctId || this.distinctId,
+			client.capture({
+				distinctId: event.distinctId || distinctId,
 				event: event.name,
 				properties: {
 					...event.properties,
-					extension_version: "1.0.0", // Get this from package.json in the future
+					extension_version: '1.0.0', // Get this from package.json in the future
 					timestamp: new Date().toISOString(),
-					source: "vscode_extension",
-				},
-			});
+					source: 'vscode_extension'
+				}
+			})
 
-			logger.debug(`Tracked event: ${event.name}`, event.properties);
+			logger.debug(`Tracked event: ${event.name}`, event.properties)
 		} catch (error) {
-			logger.error(`Failed to track event: ${event.name}`, error);
+			logger.error(`Failed to track event: ${event.name}`, error)
 		}
 	}
 
 	/**
 	 * Track errors or exceptions
 	 */
-	async trackError(error: Error, context?: Record<string, any>): Promise<void> {
-		await this.track({
-			name: "error_occurred",
+	const trackError = async (error: Error, context?: AnalyticsProperties): Promise<void> => {
+		await track({
+			name: 'error_occurred',
 			properties: {
 				error_message: error.message,
 				error_stack: error.stack,
 				error_name: error.name,
 				context,
-				timestamp: new Date().toISOString(),
-			},
-		});
+				timestamp: new Date().toISOString()
+			}
+		})
 	}
 
 	/**
 	 * Track performance metrics
 	 */
-	async trackPerformance(
+	const trackPerformance = async (
 		operation: string,
 		duration: number,
 		success: boolean,
-		metadata?: Record<string, any>,
-	): Promise<void> {
-		await this.track({
-			name: "performance_metric",
+		metadata?: AnalyticsProperties
+	): Promise<void> => {
+		await track({
+			name: 'performance_metric',
 			properties: {
 				operation,
 				duration_ms: duration,
 				success,
 				metadata,
-				timestamp: new Date().toISOString(),
-			},
-		});
+				timestamp: new Date().toISOString()
+			}
+		})
 	}
 
 	/**
 	 * Set user properties
 	 */
-	async setUserProperties(properties: Record<string, any>): Promise<void> {
-		if (!this.isInitialized || !this.client) {
-			return;
+	const setUserProperties = async (properties: AnalyticsProperties): Promise<void> => {
+		if (!isInitialized || !client) {
+			return
 		}
 
 		try {
-			this.client.capture({
-				distinctId: this.distinctId,
-				event: "user_properties_updated",
+			client.capture({
+				distinctId: distinctId,
+				event: 'user_properties_updated',
 				properties: {
 					$set: properties,
-					timestamp: new Date().toISOString(),
-				},
-			});
+					timestamp: new Date().toISOString()
+				}
+			})
 
-			logger.debug("User properties updated", properties);
+			logger.debug('User properties updated', properties)
 		} catch (error) {
-			logger.error("Failed to set user properties", error);
+			logger.error('Failed to set user properties', error)
 		}
 	}
 
 	/**
 	 * Identify user with additional properties
 	 */
-	async identify(
-		userId?: string,
-		properties?: Record<string, any>,
-	): Promise<void> {
-		if (!this.isInitialized || !this.client) {
-			return;
+	const identify = async (userId?: string, properties?: AnalyticsProperties): Promise<void> => {
+		if (!isInitialized || !client) {
+			return
 		}
 
 		try {
-			const finalUserId = userId || this.distinctId;
+			const finalUserId = userId || distinctId
 
 			if (properties) {
-				this.client.capture({
+				client.capture({
 					distinctId: finalUserId,
-					event: "$identify",
+					event: '$identify',
 					properties: {
 						$set: properties,
-						timestamp: new Date().toISOString(),
-					},
-				});
+						timestamp: new Date().toISOString()
+					}
+				})
 			}
 
-			logger.debug(`User identified: ${finalUserId}`, properties);
+			logger.debug(`User identified: ${finalUserId}`, properties)
 		} catch (error) {
-			logger.error("Failed to identify user", error);
+			logger.error('Failed to identify user', error)
 		}
 	}
 
 	/**
 	 * Shutdown the analytics client
 	 */
-	async shutdown(): Promise<void> {
-		if (this.client) {
+	const shutdown = async (): Promise<void> => {
+		if (client) {
 			try {
-				await this.client.shutdown();
-				logger.info("Analytics service shutdown complete");
+				await client.shutdown()
+				logger.info('Analytics service shutdown complete')
 			} catch (error) {
-				logger.error("Error during analytics shutdown", error);
+				logger.error('Error during analytics shutdown', error)
 			}
 		}
 	}
@@ -197,17 +195,29 @@ export class AnalyticsService {
 	/**
 	 * Get the current distinct ID
 	 */
-	getDistinctId(): string {
-		return this.distinctId;
+	const getDistinctId = (): string => {
+		return distinctId
 	}
 
 	/**
 	 * Check if analytics is enabled and initialized
 	 */
-	isEnabled(): boolean {
-		return this.isInitialized && this.client !== null;
+	const isEnabled = (): boolean => {
+		return isInitialized && client !== null
+	}
+
+	return {
+		init,
+		track,
+		trackError,
+		trackPerformance,
+		setUserProperties,
+		identify,
+		shutdown,
+		getDistinctId,
+		isEnabled
 	}
 }
 
 // Create a singleton instance but don't auto-initialize
-export const analytics = new AnalyticsService();
+export const analytics = createAnalyticsService()

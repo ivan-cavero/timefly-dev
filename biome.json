@@ -1,0 +1,60 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.0.6/schema.json",
+	"vcs": {
+		"enabled": false,
+		"clientKind": "git",
+		"useIgnoreFile": false
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"indentWidth": 4,
+		"lineWidth": 140,
+		"includes": ["**", "!**/node_modules", "!**/dist", "!**/.husky", "!**/tsconfig.node.json", "!**/tsconfig.app.json", "!**/build"]
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "single",
+			"trailingCommas": "none",
+			"semicolons": "asNeeded"
+		}
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"style": {
+				"useBlockStatements": "error",
+				"useShorthandFunctionType": "error",
+				"useTemplate": "error",
+				"noParameterAssign": "error",
+				"useAsConstAssertion": "error",
+				"useDefaultParameterLast": "error",
+				"useEnumInitializers": "error",
+				"useSelfClosingElements": "error",
+				"useSingleVarDeclarator": "error",
+				"noUnusedTemplateLiteral": "error",
+				"useNumberNamespace": "error",
+				"noInferrableTypes": "error",
+				"noUselessElse": "error",
+				"useConsistentArrayType": { "level": "error", "options": { "syntax": "shorthand" } }
+			},
+			"suspicious": {
+				"noAssignInExpressions": "error",
+				"noExplicitAny": "error"
+			},
+			"complexity": {
+				"noForEach": "off"
+			},
+			"correctness": {
+				"noUnusedVariables": "error"
+			}
+		},
+		"includes": ["**", "!**/node_modules", "!**/dist", "!**/.husky", "!**/tsconfig.node.json", "!**/tsconfig.app.json", "!**/build"]
+	},
+	"assist": { "actions": { "source": { "organizeImports": "on" } } },
+	"files": {
+		"ignoreUnknown": true,
+		"includes": ["**", "!**/node_modules", "!**/dist", "!**/tsconfig.node.json", "!**/tsconfig.app.json", "!**/build"]
+	}
+}
