@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 import { configureApiKey } from '@/auth/setup'
 import { statusBar } from '@/components/statusBar'
 import { getStorageService } from '@/services/storage'
+import { stopTracking } from '@/tracking/manager'
 import { StatusBarState } from '@/types/statusBar'
 import { info, logger } from '@/utils/logger'
 import { handleError, trackLogout } from '@/utils/telemetry'
@@ -31,6 +32,7 @@ export const handleLogout = async (): Promise<void> => {
 
 		if (selection === 'Yes, Logout') {
 			await storage.clearAllData()
+			stopTracking()
 			statusBar.update(StatusBarState.UNAUTHENTICATED)
 
 			info('User logged out successfully')

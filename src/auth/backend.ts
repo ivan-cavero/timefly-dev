@@ -16,7 +16,7 @@ export const validateApiKeyWithBackend = async (apiKey: string): Promise<Backend
 			method: 'POST',
 			headers: {
 				'X-API-Key': apiKey,
-				'Content-Type': API_CONFIG.HEADERS.CONTENT_TYPE
+				'Content-Type': API_CONFIG.HEADERS['Content-Type']
 			},
 			body: JSON.stringify({})
 		})

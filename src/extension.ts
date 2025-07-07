@@ -1,4 +1,5 @@
 import * as vscode from 'vscode'
+import { machineIdSync } from 'node-machine-id'
 import { validateApiKeyWithBackend } from '@/auth/backend'
 import { handleConfigureApiKey, handleLogout } from '@/commands/auth'
 import { handleOpenWebsite } from '@/commands/general'
@@ -6,8 +7,10 @@ import { statusBar } from '@/components/statusBar'
 import { showWelcomeMessage } from '@/components/welcomeMessage'
 import { analytics } from '@/services/analytics'
 import { initStorageService, type StorageService } from '@/services/storage'
+import { startTracking, stopTracking } from '@/tracking/manager'
+import { initPulseManager } from '@/tracking/pulse'
 import { StatusBarState } from '@/types/statusBar'
-import { info, logger, warn } from '@/utils/logger'
+import { info, warn } from '@/utils/logger'
 import { handleError, trackActivation, trackPrivacyChange } from '@/utils/telemetry'
 
 const registerCommands = (context: vscode.ExtensionContext) => {
@@ -50,7 +53,7 @@ const setupStorageService = (context: vscode.ExtensionContext): { storageService
 /**
  * Handle startup authentication check
  */
-const handleStartupAuthentication = async (storage: StorageService): Promise<void> => {
+const handleStartupAuthentication = async (storage: StorageService, context: vscode.ExtensionContext): Promise<void> => {
 	try {
 		const apiKey = await storage.getApiKey()
 
@@ -67,10 +70,13 @@ const handleStartupAuthentication = async (storage: StorageService): Promise<voi
 
 				// Silently update user info in case it has changed
 				await storage.storeUserInfo(validation.user)
+				// Start tracking
+				await startTracking(context)
 			} else {
 				// API key is no longer valid (e.g., revoked)
 				warn('Stored API key is no longer valid. Forcing logout.')
 				await storage.clearAllData()
+				stopTracking() // Stop tracking
 				statusBar.update(StatusBarState.UNAUTHENTICATED)
 				vscode.window.showWarningMessage('Your TimeFly session has expired. Please configure your API key again.')
 			}
@@ -102,6 +108,11 @@ export const activate = async (context: vscode.ExtensionContext) => {
 		// Initialize storage service with context
 		const { storageService } = setupStorageService(context)
 
+		// Get machine ID and initialize pulse manager
+		const mId = machineIdSync()
+		initPulseManager(mId)
+		info(`Machine ID: ${mId}`)
+
 		// Always initialize analytics service, but tracking will depend on user setting
 		await analytics.init()
 
@@ -109,7 +120,7 @@ export const activate = async (context: vscode.ExtensionContext) => {
 		await trackActivation(context)
 
 		// Check authentication status and show appropriate message
-		await handleStartupAuthentication(storageService)
+		await handleStartupAuthentication(storageService, context)
 
 		// Listen for configuration changes
 		setupConfigurationListeners(context)
@@ -130,6 +141,9 @@ export const activate = async (context: vscode.ExtensionContext) => {
 
 export const deactivate = async () => {
 	info('TimeFly Dev extension deactivated')
+
+	// Stop tracking and sync any remaining data
+	stopTracking()
 
 	try {
 		await analytics.shutdown()

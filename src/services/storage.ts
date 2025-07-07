@@ -1,5 +1,6 @@
 import type * as vscode from 'vscode'
 import type { AuthenticationSummary, UserInfo } from '@/types/auth'
+import type { Pulse, TrackingStats } from '@/types/tracking'
 import { logger } from '@/utils/logger'
 
 /**
@@ -11,7 +12,11 @@ const STORAGE_KEYS = {
 
 	// Global state (shared across all VS Code instances)
 	USER_INFO: 'timefly.userInfo',
-	IS_AUTHENTICATED: 'timefly.isAuthenticated'
+	IS_AUTHENTICATED: 'timefly.isAuthenticated',
+
+	// Tracking data
+	TRACKING_PULSES: 'timefly.tracking.pulses',
+	TRACKING_STATS: 'timefly.tracking.stats'
 } as const
 
 export type StorageService = ReturnType<typeof createStorageService>
@@ -83,6 +88,55 @@ const createStorageService = (context: vscode.ExtensionContext) => {
 		}
 	}
 
+	// ============= TRACKING DATA MANAGEMENT (GLOBAL STATE) =============
+
+	const storePulses = async (pulses: Pulse[]): Promise<void> => {
+		try {
+			await context.globalState.update(STORAGE_KEYS.TRACKING_PULSES, pulses)
+			logger.debug(`Stored ${pulses.length} tracking pulses.`)
+		} catch (error) {
+			logger.error('Failed to store tracking pulses', error)
+			throw new Error('Failed to store tracking pulses')
+		}
+	}
+
+	const getPulses = (): Pulse[] => {
+		try {
+			return context.globalState.get<Pulse[]>(STORAGE_KEYS.TRACKING_PULSES, [])
+		} catch (error) {
+			logger.error('Failed to retrieve tracking pulses', error)
+			return []
+		}
+	}
+
+	const clearPulses = async (): Promise<void> => {
+		try {
+			await context.globalState.update(STORAGE_KEYS.TRACKING_PULSES, undefined)
+			logger.info('Cleared stored tracking pulses.')
+		} catch (error) {
+			logger.error('Failed to clear tracking pulses', error)
+			throw new Error('Failed to clear tracking pulses')
+		}
+	}
+
+	const storeStats = async (stats: TrackingStats): Promise<void> => {
+		try {
+			await context.globalState.update(STORAGE_KEYS.TRACKING_STATS, stats)
+		} catch (error) {
+			logger.error('Failed to store tracking stats', error)
+			throw new Error('Failed to store tracking stats')
+		}
+	}
+
+	const getStats = (): TrackingStats | undefined => {
+		try {
+			return context.globalState.get<TrackingStats>(STORAGE_KEYS.TRACKING_STATS)
+		} catch (error) {
+			logger.error('Failed to retrieve tracking stats', error)
+			return undefined
+		}
+	}
+
 	// ============= UTILITY METHODS =============
 
 	const clearAllData = async (): Promise<void> => {
@@ -93,6 +147,8 @@ const createStorageService = (context: vscode.ExtensionContext) => {
 			// Clear global state
 			await context.globalState.update(STORAGE_KEYS.USER_INFO, undefined)
 			await context.globalState.update(STORAGE_KEYS.IS_AUTHENTICATED, false)
+			await context.globalState.update(STORAGE_KEYS.TRACKING_PULSES, undefined)
+			await context.globalState.update(STORAGE_KEYS.TRACKING_STATS, undefined)
 
 			logger.info('All stored data cleared')
 		} catch (error) {
@@ -121,7 +177,14 @@ const createStorageService = (context: vscode.ExtensionContext) => {
 		getUserInfo,
 		isAuthenticated,
 		clearAllData,
-		getAuthenticationSummary
+		getAuthenticationSummary,
+
+		// Tracking methods
+		storePulses,
+		getPulses,
+		clearPulses,
+		storeStats,
+		getStats
 	}
 }
 
