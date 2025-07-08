@@ -7,7 +7,7 @@ import { showWelcomeMessage } from '@/components/welcomeMessage'
 import { analytics } from '@/services/analytics'
 import { initStorageService, type StorageService } from '@/services/storage'
 import { StatusBarState } from '@/types/statusBar'
-import { info, logger, warn } from '@/utils/logger'
+import { info, warn } from '@/utils/logger'
 import { handleError, trackActivation, trackPrivacyChange } from '@/utils/telemetry'
 
 const registerCommands = (context: vscode.ExtensionContext) => {
