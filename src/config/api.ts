@@ -2,7 +2,8 @@ export const API_CONFIG = {
 	// Use environment variable for production, default to localhost for development
 	BASE_URL: process.env.TIMEFLY_API_URL || 'http://localhost:3001',
 	ENDPOINTS: {
-		VERIFY_API_KEY: () => '/api/api-keys/verify'
+		VERIFY_API_KEY: () => '/api/api-keys/verify',
+		SYNC_EVENTS: () => '/api/events/sync'
 	},
 	HEADERS: {
 		CONTENT_TYPE: 'application/json'

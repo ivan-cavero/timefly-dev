@@ -7,8 +7,8 @@ import { info, logger } from '@/utils/logger'
 import { handleError, trackLogout } from '@/utils/telemetry'
 
 /** Command: Configure API Key */
-export const handleConfigureApiKey = async (): Promise<void> => {
-	await configureApiKey()
+export const handleConfigureApiKey = async (context: vscode.ExtensionContext): Promise<void> => {
+	await configureApiKey(context)
 }
 
 /** Command: Logout from TimeFly */

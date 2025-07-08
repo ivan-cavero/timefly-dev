@@ -1,11 +1,13 @@
 import * as vscode from 'vscode'
 import { validateApiKeyWithBackend } from '@/auth/backend'
 import { handleConfigureApiKey, handleLogout } from '@/commands/auth'
+import { handleShowBufferedPulses } from '@/commands/debug'
 import { handleOpenWebsite } from '@/commands/general'
 import { statusBar } from '@/components/statusBar'
 import { showWelcomeMessage } from '@/components/welcomeMessage'
 import { analytics } from '@/services/analytics'
 import { initStorageService, type StorageService } from '@/services/storage'
+import { getTrackingManager } from '@/tracking/manager'
 import { StatusBarState } from '@/types/statusBar'
 import { info, warn } from '@/utils/logger'
 import { handleError, trackActivation, trackPrivacyChange } from '@/utils/telemetry'
@@ -13,9 +15,10 @@ import { handleError, trackActivation, trackPrivacyChange } from '@/utils/teleme
 const registerCommands = (context: vscode.ExtensionContext) => {
 	// Register TimeFly commands
 	const commands = [
-		vscode.commands.registerCommand('timefly.configureApiKey', handleConfigureApiKey),
+		vscode.commands.registerCommand('timefly.configureApiKey', () => handleConfigureApiKey(context)),
 		vscode.commands.registerCommand('timefly.logout', handleLogout),
-		vscode.commands.registerCommand('timefly.openWebsite', handleOpenWebsite)
+		vscode.commands.registerCommand('timefly.openWebsite', handleOpenWebsite),
+		vscode.commands.registerCommand('timefly.debug.showBufferedPulses', () => handleShowBufferedPulses(context))
 	]
 
 	// Add all commands to subscriptions for proper cleanup
@@ -50,7 +53,7 @@ const setupStorageService = (context: vscode.ExtensionContext): { storageService
 /**
  * Handle startup authentication check
  */
-const handleStartupAuthentication = async (storage: StorageService): Promise<void> => {
+const handleStartupAuthentication = async (storage: StorageService, context: vscode.ExtensionContext): Promise<void> => {
 	try {
 		const apiKey = await storage.getApiKey()
 
@@ -67,6 +70,10 @@ const handleStartupAuthentication = async (storage: StorageService): Promise<voi
 
 				// Silently update user info in case it has changed
 				await storage.storeUserInfo(validation.user)
+
+				// Start tracking for authenticated user
+				const trackingManager = getTrackingManager(context)
+				trackingManager.start()
 			} else {
 				// API key is no longer valid (e.g., revoked)
 				warn('Stored API key is no longer valid. Forcing logout.')
@@ -109,7 +116,7 @@ export const activate = async (context: vscode.ExtensionContext) => {
 		await trackActivation(context)
 
 		// Check authentication status and show appropriate message
-		await handleStartupAuthentication(storageService)
+		await handleStartupAuthentication(storageService, context)
 
 		// Listen for configuration changes
 		setupConfigurationListeners(context)

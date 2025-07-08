@@ -1,6 +1,7 @@
 import * as vscode from 'vscode'
 import { statusBar } from '@/components/statusBar'
 import { getStorageService } from '@/services/storage'
+import { getTrackingManager } from '@/tracking/manager'
 import { StatusBarState } from '@/types/statusBar'
 import { debug, info } from '@/utils/logger'
 import { handleError, trackApiKeySetup } from '@/utils/telemetry'
@@ -48,7 +49,7 @@ const getErrorMessage = (statusCode: number, error: string): { message: string; 
 	}
 }
 
-const attemptApiKeyConfiguration = async (): Promise<void> => {
+const attemptApiKeyConfiguration = async (context?: vscode.ExtensionContext): Promise<void> => {
 	try {
 		const apiKey = await vscode.window.showInputBox({
 			prompt: 'Enter your TimeFly API Key',
@@ -61,7 +62,7 @@ const attemptApiKeyConfiguration = async (): Promise<void> => {
 				} // Allow empty during typing
 				const validation = validateApiKeyFormat(value)
 				return validation.isValid ? null : validation.error
-			},
+			}
 		})
 
 		if (!apiKey) {
@@ -77,7 +78,7 @@ const attemptApiKeyConfiguration = async (): Promise<void> => {
 			// Ask to retry
 			const retry = await showErrorWithRetry('Invalid API key format. Would you like to try again?')
 			if (retry) {
-				await attemptApiKeyConfiguration()
+				await attemptApiKeyConfiguration(context)
 			}
 			return
 		}
@@ -86,7 +87,7 @@ const attemptApiKeyConfiguration = async (): Promise<void> => {
 			{
 				location: vscode.ProgressLocation.Notification,
 				title: '⏳ Validating API key with TimeFly...',
-				cancellable: false,
+				cancellable: false
 			},
 			async () => {
 				const backendValidation = await validateApiKeyWithBackend(apiKey)
@@ -101,44 +102,50 @@ const attemptApiKeyConfiguration = async (): Promise<void> => {
 						info('API key and user info stored successfully')
 						await trackApiKeySetup(true)
 
+						// Start tracking after successful authentication if context is available
+						if (context) {
+							const trackingManager = getTrackingManager(context)
+							trackingManager.start()
+						}
+
 						const userName = backendValidation.user.name || backendValidation.user.email || 'Developer'
 						const successMessage = `🚀 Welcome ${userName}! Your API key is configured and TimeFly is now tracking your coding time.`
 
 						vscode.window.showInformationMessage(successMessage)
 					} catch (storageError) {
 						await handleError(storageError, {
-							eventName: 'api_key_storage_error',
+							eventName: 'api_key_storage_error'
 						})
 						const retry = await showErrorWithRetry('🔐 Failed to securely store your API key. Please try again.')
 						if (retry) {
-							await attemptApiKeyConfiguration()
+							await attemptApiKeyConfiguration(context)
 						}
 					}
 				} else {
 					const { message, shouldRetry } = getErrorMessage(
 						backendValidation.statusCode || 0,
-						backendValidation.error || 'Unknown error',
+						backendValidation.error || 'Unknown error'
 					)
 
 					await trackApiKeySetup(false, `backend_validation_failed: ${backendValidation.statusCode} - ${backendValidation.error}`)
 
 					const retry = await showErrorWithRetry(message, shouldRetry)
 					if (retry) {
-						await attemptApiKeyConfiguration()
+						await attemptApiKeyConfiguration(context)
 					}
 				}
-			},
+			}
 		)
 	} catch (error) {
 		await handleError(error, { eventName: 'configure_api_key_flow' })
 		const retry = await showErrorWithRetry('❌ An unexpected error occurred. Please try again.')
 		if (retry) {
-			await attemptApiKeyConfiguration()
+			await attemptApiKeyConfiguration(context)
 		}
 	}
 }
 
 /** Handle API key configuration flow */
-export const configureApiKey = async (): Promise<void> => {
-	await attemptApiKeyConfiguration()
+export const configureApiKey = async (context?: vscode.ExtensionContext): Promise<void> => {
+	await attemptApiKeyConfiguration(context)
 }
