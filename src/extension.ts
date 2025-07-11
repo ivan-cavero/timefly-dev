@@ -26,12 +26,26 @@ const registerCommands = (context: vscode.ExtensionContext) => {
 const setupConfigurationListeners = (context: vscode.ExtensionContext) => {
 	// Listen for changes to analytics setting
 	const configListener = vscode.workspace.onDidChangeConfiguration(async (e) => {
-		if (e.affectsConfiguration('timefly.analytics.enabled')) {
-			const config = vscode.workspace.getConfiguration('timefly')
-			const enabled = config.get<boolean>('analytics.enabled', true)
+		if (!e.affectsConfiguration('timefly.analytics.enabled')) {
+			return
+		}
 
-			info(`Analytics setting changed to: ${enabled}`)
-			await trackPrivacyChange(enabled)
+		const config = vscode.workspace.getConfiguration('timefly')
+		const enabled = config.get<boolean>('analytics.enabled', true)
+
+		info(`Analytics setting changed to: ${enabled}`)
+
+		// Handle runtime (de)initialization coherently.
+		if (enabled && !analytics.isEnabled()) {
+			// User just enabled analytics → initialise first so event is captured.
+			await analytics.init()
+		}
+
+		await trackPrivacyChange(enabled)
+
+		if (!enabled && analytics.isEnabled()) {
+			// User disabled analytics → record event then shut down.
+			await analytics.shutdown()
 		}
 	})
 
@@ -98,26 +112,23 @@ export const activate = async (context: vscode.ExtensionContext) => {
 	statusBar.init(context)
 	statusBar.update(StatusBarState.INITIALIZING)
 
+	// Wrap the initialization logic in a try/catch so that a failure in any
+	// single step does not abort the entire activation flow.
 	try {
-		// Initialize storage service with context
+		// Initialize storage service with context so other services can depend on it.
 		const { storageService } = setupStorageService(context)
 
-		// Always initialize analytics service, but tracking will depend on user setting
+		// Initialize analytics service (may no-op if disabled in settings) and then track activation.
 		await analytics.init()
-
-		// Track extension activation with environment info
 		await trackActivation(context)
 
-		// Check authentication status and show appropriate message
+		// Check authentication status and show appropriate message.
 		await handleStartupAuthentication(storageService)
-
-		// Listen for configuration changes
-		setupConfigurationListeners(context)
 	} catch (error) {
 		statusBar.update(StatusBarState.ERROR)
 		await handleError(error, { eventName: 'extension_activation' })
 
-		// Fallback to welcome message even if other parts of activation fail
+		// Fallback to welcome message even if other parts of activation fail.
 		try {
 			await showWelcomeMessage()
 		} catch (welcomeError) {
@@ -125,6 +136,11 @@ export const activate = async (context: vscode.ExtensionContext) => {
 				eventName: 'show_welcome_message_fallback'
 			})
 		}
+	} finally {
+		// Configuration listeners must be registered regardless of previous errors.
+		setupConfigurationListeners(context)
+
+		info('TimeFly Dev extension activation complete')
 	}
 }
 

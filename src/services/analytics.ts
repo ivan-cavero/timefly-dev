@@ -2,6 +2,7 @@ import { machineIdSync } from 'node-machine-id'
 import { PostHog } from 'posthog-node'
 import type { AnalyticsProperties } from '@/types/analytics'
 import { logger } from '../utils/logger'
+import * as vscode from 'vscode'
 
 export interface AnalyticsEvent {
 	name: string
@@ -38,6 +39,13 @@ const createAnalyticsService = () => {
 		}
 
 		try {
+			// Respect user preference from settings before initializing
+			const config = vscode.workspace.getConfiguration('timefly')
+			if (!config.get<boolean>('analytics.enabled', true)) {
+				logger.info('Analytics disabled via user settings; skipping initialization.')
+				return
+			}
+
 			const apiKey = process.env.POSTHOG_API_KEY || 'phc_b62mSeeaa5sb7ARZcdqQ7qlXOW2klQX20b3qaPhhjQF'
 			const host = process.env.POSTHOG_HOST || 'https://eu.i.posthog.com'
 
@@ -190,6 +198,10 @@ const createAnalyticsService = () => {
 				logger.error('Error during analytics shutdown', error)
 			}
 		}
+
+		// Reset internal state so isEnabled() reflects shutdown
+		client = null
+		isInitialized = false
 	}
 
 	/**
