@@ -2,9 +2,11 @@ import * as vscode from 'vscode'
 import { validateApiKeyWithBackend } from '@/auth/backend'
 import { handleConfigureApiKey, handleLogout } from '@/commands/auth'
 import { handleOpenWebsite } from '@/commands/general'
+import { handleShowBufferedEvents } from '@/commands/debug'
 import { statusBar } from '@/components/statusBar'
 import { showWelcomeMessage } from '@/components/welcomeMessage'
 import { analytics } from '@/services/analytics'
+import { startTracking } from '@/tracking/tracker'
 import { initStorageService, type StorageService } from '@/services/storage'
 import { StatusBarState } from '@/types/statusBar'
 import { info, warn } from '@/utils/logger'
@@ -15,7 +17,8 @@ const registerCommands = (context: vscode.ExtensionContext) => {
 	const commands = [
 		vscode.commands.registerCommand('timefly.configureApiKey', handleConfigureApiKey),
 		vscode.commands.registerCommand('timefly.logout', handleLogout),
-		vscode.commands.registerCommand('timefly.openWebsite', handleOpenWebsite)
+		vscode.commands.registerCommand('timefly.openWebsite', handleOpenWebsite),
+		vscode.commands.registerCommand('timefly.debug.showEvents', handleShowBufferedEvents)
 	]
 
 	// Add all commands to subscriptions for proper cleanup
@@ -64,7 +67,10 @@ const setupStorageService = (context: vscode.ExtensionContext): { storageService
 /**
  * Handle startup authentication check
  */
-const handleStartupAuthentication = async (storage: StorageService): Promise<void> => {
+const handleStartupAuthentication = async (
+	storage: StorageService,
+	context: vscode.ExtensionContext
+): Promise<void> => {
 	try {
 		const apiKey = await storage.getApiKey()
 
@@ -79,8 +85,22 @@ const handleStartupAuthentication = async (storage: StorageService): Promise<voi
 				info(`Welcome back ${userName}! TimeFly is ready to track your coding time.`)
 				statusBar.update(StatusBarState.AUTHENTICATED)
 
+				// Start activity tracking service
+				startTracking(context, storage)
+
 				// Silently update user info in case it has changed
 				await storage.storeUserInfo(validation.user)
+			} else if (validation.statusCode === 0) {
+				// Network error: keep existing session but warn user that validation couldn't be performed
+				warn('Could not reach TimeFly backend to validate API key. Working offline.')
+				statusBar.update(StatusBarState.AUTHENTICATED)
+
+				// Start activity tracking service even when offline
+				startTracking(context, storage)
+
+				vscode.window.showWarningMessage('TimeFly backend unreachable – working offline. Your data will sync once connection is restored.', {
+					modal: false
+				})
 			} else {
 				// API key is no longer valid (e.g., revoked)
 				warn('Stored API key is no longer valid. Forcing logout.')
@@ -123,7 +143,7 @@ export const activate = async (context: vscode.ExtensionContext) => {
 		await trackActivation(context)
 
 		// Check authentication status and show appropriate message.
-		await handleStartupAuthentication(storageService)
+		await handleStartupAuthentication(storageService, context)
 	} catch (error) {
 		statusBar.update(StatusBarState.ERROR)
 		await handleError(error, { eventName: 'extension_activation' })

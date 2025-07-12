@@ -29,6 +29,11 @@
 				"command": "timefly.openWebsite",
 				"title": "Open TimeFly Website",
 				"category": "TimeFly"
+			},
+			{
+				"command": "timefly.debug.showEvents",
+				"title": "Show Buffered Events (Debug)",
+				"category": "TimeFly (Dev)"
 			}
 		],
 		"configuration": {

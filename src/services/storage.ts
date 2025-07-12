@@ -11,7 +11,8 @@ const STORAGE_KEYS = {
 
 	// Global state (shared across all VS Code instances)
 	USER_INFO: 'timefly.userInfo',
-	IS_AUTHENTICATED: 'timefly.isAuthenticated'
+	IS_AUTHENTICATED: 'timefly.isAuthenticated',
+	PRODUCTIVE_TIME_PREFIX: 'timefly.productiveTime.'
 } as const
 
 export type StorageService = ReturnType<typeof createStorageService>
@@ -85,6 +86,20 @@ const createStorageService = (context: vscode.ExtensionContext) => {
 
 	// ============= UTILITY METHODS =============
 
+	const getDateKey = (date: Date): string => {
+		return date.toISOString().split('T')[0] // YYYY-MM-DD
+	}
+
+	const getProductiveTime = (date: Date): number => {
+		const key = `${STORAGE_KEYS.PRODUCTIVE_TIME_PREFIX}${getDateKey(date)}`
+		return context.globalState.get<number>(key, 0)
+	}
+
+	const storeProductiveTime = async (date: Date, ms: number): Promise<void> => {
+		const key = `${STORAGE_KEYS.PRODUCTIVE_TIME_PREFIX}${getDateKey(date)}`
+		await context.globalState.update(key, ms)
+	}
+
 	const clearAllData = async (): Promise<void> => {
 		try {
 			// Clear secrets
@@ -121,7 +136,9 @@ const createStorageService = (context: vscode.ExtensionContext) => {
 		getUserInfo,
 		isAuthenticated,
 		clearAllData,
-		getAuthenticationSummary
+		getAuthenticationSummary,
+		getProductiveTime,
+		storeProductiveTime
 	}
 }
 
