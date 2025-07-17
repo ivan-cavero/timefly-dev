@@ -17,13 +17,16 @@ import { ACTIVITY_PRIORITY, PRODUCTIVE_ACTIVITIES, type ActivityName } from './a
 import { registerAllDetectors } from './detectors'
 import type { ActivityMetadata, ActivityEvent } from './types'
 import { mergeMeta } from '@/tracking/utils/meta'
+import { machineIdSync } from 'node-machine-id'
+import * as os from 'node:os'
+import { execSync } from 'node:child_process'
 
 // Debug buffer accessible via getBufferedEvents()
 const _events: ActivityEvent[] = []
 
 export const getBufferedEvents = (): ActivityEvent[] => [..._events]
 
-interface TrackerHandle {
+export interface TrackerHandle {
 	dispose: () => void
 }
 
@@ -48,6 +51,21 @@ const formatDuration = (ms: number): string => {
 	const hours = Math.floor(totalSeconds / 3600)
 	const minutes = Math.floor((totalSeconds % 3600) / 60)
 	return `${hours}h ${minutes}m`
+}
+
+const recordPerf = (name: string, value: number): void => {
+	if (analytics.isEnabled()) {
+		void analytics.track({ name, properties: { value } })
+	}
+}
+
+const baseMeta = {
+	machine_id: machineIdSync(),
+	hostname: os.hostname(),
+	ide_version: vscode.version,
+	os_arch: process.arch,
+	cpu_cores: os.cpus().length.toString(),
+	memory_total_mb: Math.round(os.totalmem() / 1_048_576).toString()
 }
 
 // Main entry -------------------------------------------------------
@@ -213,13 +231,20 @@ export const startTracking = (
 			project_id: vscode.workspace.name ?? 'unknown',
 			event_time: nowDate.toISOString(),
 			metadata: {
+				...baseMeta,
 				extension_version: context.extension.packageJSON.version ?? 'unknown',
 				ide_name: vscode.env.appName,
-				platform: process.platform
+				platform: process.platform,
+				workspace_folders: `${vscode.workspace.workspaceFolders?.length ?? 0}`,
+				theme: `${vscode.window.activeColorTheme.kind}`,
+				window_focused: `${vscode.window.state.focused}`,
+				git_branch: getGitBranch()
 			},
 			activities: activityEntries
 		}
 
+		const lag = performance.now() - lastUserActivity
+		recordPerf('event_loop_lag_ms', lag)
 		events.push(event)
 		logger.debug('Event generated', event)
 
@@ -268,6 +293,10 @@ export const startTracking = (
 			})
 		}
 
+		const sizeKb = JSON.stringify(events).length / 1024
+		recordPerf('flush_payload_size_kb', sizeKb)
+		recordPerf('event_batch_count', events.length)
+
 		// After successful send, clear buffer
 		events.length = 0
 	}
@@ -295,6 +324,37 @@ export const startTracking = (
 	updateStatusBar()
 
 	logger.info('Activity tracking started')
+
+	const getGitBranch = (): string => {
+		// Prefer VS Code's built-in Git extension API if available – it works even when the CLI is missing
+		try {
+			/* eslint-disable @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access */
+			const gitExtension = vscode.extensions.getExtension('vscode.git')?.exports
+			const git = typeof gitExtension?.getAPI === 'function' ? gitExtension.getAPI(1) : undefined
+			const branch = git?.repositories?.[0]?.state?.HEAD?.name as string | undefined
+			if (branch) {
+				return branch
+			}
+			/* eslint-enable */
+		} catch {
+			// ignore – we'll try the CLI fallback next
+		}
+
+		// Fallback to git CLI (works for WSL/remote folders that expose git)
+		try {
+			const workspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+			if (!workspace) {
+				return 'unknown'
+			}
+			const res = execSync('git rev-parse --abbrev-ref HEAD', {
+				cwd: workspace,
+				stdio: ['ignore', 'pipe', 'ignore']
+			})
+			return res.toString().trim()
+		} catch {
+			return 'unknown'
+		}
+	}
 
 	return { dispose }
 } 

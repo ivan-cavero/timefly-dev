@@ -6,6 +6,7 @@ import { debug, info } from '@/utils/logger'
 import { handleError, trackApiKeySetup } from '@/utils/telemetry'
 import { validateApiKeyWithBackend } from './backend'
 import { validateApiKeyFormat } from './validator'
+import { startTrackingAfterAuth } from '@/extension'
 
 /** Show error message with retry option */
 const showErrorWithRetry = async (message: string, shouldRetry = true): Promise<boolean> => {
@@ -96,6 +97,8 @@ const attemptApiKeyConfiguration = async (): Promise<void> => {
 						const storage = getStorageService()
 						await storage.storeApiKey(apiKey)
 						await storage.storeUserInfo(backendValidation.user)
+						// Start tracking in current session (extension already active)
+						startTrackingAfterAuth()
 						statusBar.update(StatusBarState.AUTHENTICATED)
 
 						info('API key and user info stored successfully')

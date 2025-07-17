@@ -6,11 +6,22 @@ import { handleShowBufferedEvents } from '@/commands/debug'
 import { statusBar } from '@/components/statusBar'
 import { showWelcomeMessage } from '@/components/welcomeMessage'
 import { analytics } from '@/services/analytics'
-import { startTracking } from '@/tracking/tracker'
+import { startTracking, type TrackerHandle } from '@/tracking/tracker'
 import { initStorageService, type StorageService } from '@/services/storage'
 import { StatusBarState } from '@/types/statusBar'
 import { info, warn } from '@/utils/logger'
 import { handleError, trackActivation, trackPrivacyChange } from '@/utils/telemetry'
+
+// Global handles so other modules (e.g., auth) can trigger tracking after runtime login
+let globalContext: vscode.ExtensionContext | null = null
+let globalStorage: StorageService | null = null
+let trackerHandle: TrackerHandle | null = null
+
+export const startTrackingAfterAuth = (): void => {
+	if (globalContext && globalStorage && !trackerHandle) {
+		trackerHandle = startTracking(globalContext, globalStorage)
+	}
+}
 
 const registerCommands = (context: vscode.ExtensionContext) => {
 	// Register TimeFly commands
@@ -60,6 +71,7 @@ const setupConfigurationListeners = (context: vscode.ExtensionContext) => {
  */
 const setupStorageService = (context: vscode.ExtensionContext): { storageService: StorageService } => {
 	const storage = initStorageService(context)
+	globalStorage = storage
 	info('Storage service initialized')
 	return { storageService: storage }
 }
@@ -86,17 +98,17 @@ const handleStartupAuthentication = async (
 				statusBar.update(StatusBarState.AUTHENTICATED)
 
 				// Start activity tracking service
-				startTracking(context, storage)
+				trackerHandle = startTracking(context, storage)
 
 				// Silently update user info in case it has changed
 				await storage.storeUserInfo(validation.user)
-			} else if (validation.statusCode === 0) {
+			} else if ((validation.statusCode ?? 0) === 0 || (validation.statusCode ?? 0) >= 500) {
 				// Network error: keep existing session but warn user that validation couldn't be performed
 				warn('Could not reach TimeFly backend to validate API key. Working offline.')
 				statusBar.update(StatusBarState.AUTHENTICATED)
 
 				// Start activity tracking service even when offline
-				startTracking(context, storage)
+				trackerHandle = startTracking(context, storage)
 
 				vscode.window.showWarningMessage('TimeFly backend unreachable – working offline. Your data will sync once connection is restored.', {
 					modal: false
@@ -137,6 +149,7 @@ export const activate = async (context: vscode.ExtensionContext) => {
 	try {
 		// Initialize storage service with context so other services can depend on it.
 		const { storageService } = setupStorageService(context)
+		globalContext = context
 
 		// Initialize analytics service (may no-op if disabled in settings) and then track activation.
 		await analytics.init()
